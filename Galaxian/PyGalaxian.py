@@ -8,6 +8,7 @@ import time
 import math
 import random
 from pygame.locals import *
+import json
 
 pygame.init()
 
@@ -72,7 +73,7 @@ def load_image(
     image = pygame.image.load(fullname)
     image = image.convert()
     if colorkey is not None:
-        if colorkey is -1:
+        if colorkey == -1:
             colorkey = image.get_at((0, 0))
         image.set_colorkey(colorkey, RLEACCEL)
 
@@ -190,6 +191,26 @@ def storyboard(wavecounter):
 
         return 11
 
+# Função para carregar o highscore de um arquivo
+def load_highscore():
+    if os.path.exists('highscore.json'):
+        with open('highscore.json', 'r') as file:
+            try:
+                data = json.load(file)
+                return data.get('highscore', 0)  # Retorna o valor do highscore ou 0
+            except json.JSONDecodeError:
+                return 0  # Se o arquivo estiver vazio ou corrompido
+    else:
+        # Se o arquivo não existir, cria um novo com o highscore inicial de 0
+        save_highscore(0)
+        return 0
+
+# Função para salvar o highscore em um arquivo
+def save_highscore(score):
+    """Função global para salvar o highscore"""
+    with open('highscore.json', 'w') as file:
+        json.dump({'highscore': score}, file)
+
 
 class stars:
 
@@ -219,13 +240,11 @@ class stars:
 
 
 class player(pygame.sprite.Sprite):
-
     def __init__(self):
         pygame.sprite.Sprite.__init__(self)
-        (self.image, self.rect) = load_image('fighter1_scale.png', 72,
-                72, -1)
-        self.rect.top = size[1] - 100#500
-        self.rect.left = size[0]/2#200
+        (self.image, self.rect) = load_image('fighter1_scale.png', 72, 72, -1)
+        self.rect.top = size[1] - 100  # 500
+        self.rect.left = size[0] / 2  # 200
 
         self.speed = 0
         self.fire = 0
@@ -238,6 +257,9 @@ class player(pygame.sprite.Sprite):
         self.isautopilot = False
         self.shot = False
         self.won = False
+
+        # Carregar o HighScore ao iniciar o jogador
+        self.highscore = load_highscore()
 
     def checkbounds(self):
         if self.rect.left < 0:
@@ -252,11 +274,16 @@ class player(pygame.sprite.Sprite):
     def update(self):
         self.rect = self.rect.move(self.movement)
         self.shootdelay += 1
-        if self.fire == 1 and self.shootdelay%3 == 1:
+        if self.fire == 1 and self.shootdelay % 3 == 1:
             self.shoot()
 
         if self.health > 200:
             self.health = 200
+
+        # Atualizar HighScore
+        if self.score > self.highscore:
+            self.highscore = self.score
+            save_highscore(self.highscore)  # Salvar o novo highscore
 
     def drawplayer(self):
         screen.blit(self.image, self.rect)
@@ -275,7 +302,6 @@ class player(pygame.sprite.Sprite):
             - width / 2 > -5:
             self.movement[0] = 0
             self.movement[1] = -10
-
 
 class boss(pygame.sprite.Sprite):
 
@@ -899,6 +925,9 @@ def main():
 
     bg,bgrect = load_image('bg1.png')
 
+    # Carregar HighScore
+    highscore = user.highscore  # Usando o highscore do jogador
+    
     while not gameOver:
         while not menuExit:
             for event in pygame.event.get():
@@ -931,14 +960,11 @@ def main():
             user.drawplayer()
             screen.blit(logoimage, logorect)
 
-            displaytext('Play', 32, width / 2 - 20, height * 3 / 4
-                        - 40, white)
-            displaytext('Exit', 32, width / 2 - 20, height * 3 / 4,
-                        white)
-            displaytext('PyGalaxian version 1.0', 12, width - 80, height - 20,
-                        white)
-            displaytext('Made by: Shivam Shekhar', 12, width - 80, height - 10,
-                        white)
+            displaytext('Play', 32, width / 2 - 20, height * 3 / 4 - 40, white)
+            displaytext('Exit', 32, width / 2 - 20, height * 3 / 4, white)
+            displaytext('HighScore: ' + str(highscore), 22, width / 2 - 50, height * 3 / 4 + 50, white)
+            displaytext('PyGalaxian version 1.0', 12, width - 80, height - 20, white)
+            displaytext('Made by: Shivam Shekhar', 12, width - 80, height - 10, white)
 
             if menuhighlight % 2 == 0:
                 screen.blit(pygame.transform.scale(user.image, (25,
@@ -992,13 +1018,11 @@ def main():
                 if len(drones) > 0:
                     for drone in drones:
                         if drone.rect.left < width / 2:
-                            enemydrone(random.randrange(width / 2 + 60,
-                                    width - 60))
+                            enemydrone(random.randrange(int(width / 2 + 60), int(width / 2 + 120)))
                         else:
-                            enemydrone(random.randrange(0, width / 2
-                                    - 60))
+                            enemydrone(random.randrange(int(width / 2 + 60), int(width / 2 + 120)))
                 else:
-                    enemydrone(random.randrange(0, width - 60))
+                    enemydrone(random.randrange(int(width / 2 + 60), int(width / 2 + 120)))
 
             if len(station) < 1 and (wave == 3 or wave == 10):
                 enemystation(random.randrange(0, width - 60))
@@ -1097,10 +1121,10 @@ def main():
             starfield3.drawstars()
 
             if user.health > 0:
-                showhealthbar(user.health, green, [100, height - 20,
-                              user.health * 4, 10], 4)
+                showhealthbar(user.health, green, [100, height - 20, user.health * 4, 10], 4)
             displaytext('HEALTH', 22, 50, height - 15, white)
             displaytext('Score:', 22, width - 100, 15, white)
+            displaytext('HighScore: ' + str(user.highscore), 22, width / 2 - 50, 15, white)
             displaytext(str(user.score), 22, width - 35, 15, white)
             user.drawplayer()
 
@@ -1277,29 +1301,25 @@ def main():
                     gameOverScreen = False
                     gameOver = True
 
-            if event.type == pygame.KEYDOWN:
-                if event.key == pygame.K_RETURN:
-                    gameOverScreen = False
-                    gameOver = True
+                if event.type == pygame.KEYDOWN:
+                    if event.key == pygame.K_RETURN:
+                        gameOverScreen = False
+                        gameOver = True
 
             screen.fill(sky)
             starfield1.drawstars()
             starfield2.drawstars()
             starfield3.drawstars()
 
-            if user.won == False:
-                displaytext('Game Over', 26, width / 2 - 30, height
-                            / 2, white)
+            if not user.won:
+                displaytext('Game Over', 26, width / 2 - 30, height / 2, white)
             else:
-                displaytext('Congratulations! You Won!', 26, width / 2
-                            - 30, height / 2, white)
+                displaytext('Congratulations! You Won!', 26, width / 2 - 30, height / 2, white)
 
-            displaytext('Your score: ', 26, width / 2 - 40, height / 2
-                        + 40, white)
-            displaytext(str(user.score), 26, width / 2 + 50, height / 2
-                        + 43, white)
-            displaytext('Press Enter to exit...', 14, width / 2 - 30,
-                        height / 2 + 90, white)
+            displaytext('Your score: ', 26, width / 2 - 40, height / 2 + 40, white)
+            displaytext(str(user.score), 26, width / 2 + 50, height / 2 + 43, white)
+            displaytext('HighScore: ' + str(highscore), 26, width / 2 - 50, height / 2 + 80, white)
+            displaytext('Press Enter to exit...', 14, width / 2 - 30, height / 2 + 120, white)
             pygame.display.update()
             clock.tick(FPS)
 
